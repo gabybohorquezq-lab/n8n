@@ -1,0 +1,7 @@
+;Usuarios;Esquema Permisos;Tipo de Objeto;Nombre del Objeto;Tipo de permiso;;;;;;;
+No;;;;;Select;Insert;Update;Delete;Truncate;Create;Ejecucion;
+1;LFORDONEZI;RMS;Tabla;NB_STOREDAY_FOR_PURGE;;;;;X;;;Permiso a tablas de ventas para consulta de ventas
+;;;;;;;;;;;;
+;;;;;;;;;;;;
+;;;;;;;;;;;;
+;;;;;;;;;;;;

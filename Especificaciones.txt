@@ -1,0 +1,229 @@
+1. Te explico tengo una aplicación web https://test-framecontroller.corporaciongpf.com/front/login, aquí tengo que agregar un combo box, en dicho combo debe aparecer la ip se todos los servidores, una vez seleccione debe aparecer todas las aplicaciones que aloja, junto a la aplicación debe estar 3 botones que STOP, STARD, RESTAR.
+2. Ejemplo, cuando dé clic en el botón STOP el servidor se debe parar, ¿Cómo me conecto al servidor? en dicho servidor debe tener un scrip o Shell que permita conectarme con el servidor, ese Shell debe ser genérico para cualquier servidor, es este caso es un servidor Wildfly.
+3.En postman debo crear un servicio POST para que al yo poner IP, Uusario, Password, Ruta Shell, y se conecte al servidor.
+4.Hay que crear un usuario, no se como y para que con el usuario PFCADMIN en la base FemsaDev y en Femsatest
+5. Luego hacer FRONT en Srptinboots 3.5.11, Java Maven 17, Properties ambientes que tampoco se en DEV y en TEST.
+6. Y tener Docker 
+eso
+
+-------------------------------------------------------------------------SHELL---------------SCRIPT-----------------------------------------------
+https://gitlab.corporaciongpf.com/tec-ms-femsa/tec-ms-pdv/tec-ms-consulta-productos.git
+
+-------------------------------------------------------------subir el desarrollo---------------------------------------------------------------------------------
+https://gitlab.corporaciongpf.com/soporte_n3/tec-proy-portal-framecontroller/tec-ms-shellexecutor/-/tree/master?ref_type=heads
+-------------------------------------------------------------comandos -------- SHELL-------------SCRIPT------172.20.200.168------------------------------------------------------------
+1...........conecta
+ssh admiddle@172.20.200.168
+M1ddL3_W4r3
+2............crear directorio o se tienes un directorio, cuál es ??
+mkdir -p /home/admiddle/data/scripts
+home/admiddle/data/script
+
+
+
+2.1.....................de no existir ---- crear el script INICIO-----start_wf_pfc_.sh
+nano start_wf_pfc.sh
+#!/bin/bash
+echo "Iniciando servicio Wildfly..."
+sudo systemctl start wildfly
+echo "Comando enviado. Verifique el estado en unos segundos."
+Guarda (Ctrl+O, Enter) y sale (Ctrl+X).
+2.2.......................de no existir ---- Crear el Script de APAGADO (stop_wf.sh)
+nano stop_wf_pfc.sh
+#!/bin/bash
+echo "Deteniendo servicio Wildfly..."
+sudo systemctl stop wildfly
+echo "El servicio se ha detenido correctamente."
+Guarda (Ctrl+O, Enter) y sale (Ctrl+X).
+2.3..............................de no existir ----Crear el Script de ESTADO (status_wf.sh)
+nano status_wf_pfc.sh
+#!/bin/bash
+# Retorna 'active' o 'inactive'
+systemctl is-active wildfly
+2.4...........................de no existir ----Crear el Script de ESTADO (restart_wf.sh)
+nano nano restart_wf_pfc.sh
+#!/bin/bash
+echo "Reiniciando el servicio Wildfly..."
+sudo systemctl restart wildfly
+echo "Reinicio completado."
+chmod +x ~/scripts/restart_wf.sh
+3.............................................permisos de uno en uno................
+chmod +x start_wf.sh stop_wf.sh status_wf.sh restart_wf.sh
+
+4............................direcciones
+Botón START: Llama a la ruta /home/admiddle/scripts/start_wf.sh
+
+Botón STOP: Llama a la ruta /home/admiddle/scripts/stop_wf.sh
+
+Botón STATUS: Llama a la ruta /home/admiddle/scripts/status_wf.sh
+
+systemctl start wildfly
+systemctl stop wildfly
+systemctl status wildfly
+ systemctl status wildfly
+
+
+
+
+------------------------------------------------JSON----
+{
+    "ip": "172.20.200.168",
+    "usuario": "admiddle",
+    "password": "M1ddL3_W4r3",
+    "rutaShell": "/home/admiddle/scripts/check_status.sh"
+}
+
+
+
+-------------------------------------------------------------
+Testing 
+-----------------------------------------------------
+Aplicación Web (SAM-WEB)
+IP: 10.100.15.10              
+Usuario: adminapp  
+Password: .Fybec@.2020 /temporal
+Base de Datos(Mongo) y Servicios Backend(SAM-MAD):
+---------
+
+Desplegado en DOCKER
+IP: 10.100.15.15          
+Usuario docker 
+Password: D0ck3r.2020
+acc350.21
+----------------------
+Pero verás el 10.100.15.10 
+Es o bien 
+
+docker clave: temporal
+ 
+Y el otro 10.100.15.15
+
+Es adminappli y clave: acce50.21
+ --------------------------------------------------------------------------------------------PRUEBA---VALIDADA
+IP: 10.100.15.10              
+Usuario: adminapp  
+Password:temporal
+--------------------------------------------------------------------------------servidor------10.100.15.10---------------------
+#!/bin/bash
+echo "--- MENSAJE: REVISANDO EL ESTADO DEL SERVIDOR ---"
+-----------------------------------------------------------------------systemctl status wildfly.service-------------------
+nano /home/adminapp/status.sh          ---------------ubicacion
+
+#!/bin/bash
+echo "--- [ REPORTE DE SALUD DEL SERVIDOR ] ---"
+echo ""
+echo ">> ESTADO DE WILDFLY:"
+sudo systemctl status wildfly | grep "Active:"
+echo ""
+echo ">> ¿HAY OTROS SERVICIOS FALLANDO?"
+# Esto busca CUALQUIER servicio fallido en el sistema
+FALLIDOS=$(systemctl list-units --state=failed --no-legend)
+
+if [ -z "$FALLIDOS" ]; then
+    echo "¡Todo bien! No hay otros servicios fallidos."
+else
+    echo "ATENCIÓN: Estos servicios tienen errores:"
+    echo "$FALLIDOS"
+fi
+echo ""
+echo "-----------------------------------------"
+
+
+-------------------------------------------------------------------------------------
+
+
+
+echo "sudo systemctl restart wildfly.service" > restart.sh
+echo "sudo systemctl stop wildfly.service" > stop.sh
+chmod +x status.sh restart.sh stop.sh
+
+
+
+
+-----------------------------------------------------------------------------------------------------DUDAS-----------------------
+servidor 172.20.200.168
+1. Estamos reiniciando todo el servidor, mismo que tiene 4 servicios, ¿cómo me reinico si solo quiero bajar un solo aplicativo?
+2. creo una ruta shell, pero si son más servidores tendría que hacer uno por uno?
+3. Para ejecutar este proceso deberia loguearse como super usuario o con cual ?
+4. 
+
+
+
+--------------------------------------------------------------------------------------comandos
+systemctl list-units --type=service --state=running---servicios del servidor
+systemctl list-units --type=service --state=failed----servicio que fallo
+------------sitemas fallidos
+#!/bin/bash
+echo "--- [ REPORTE DE SALUD DEL SERVIDOR ] ---"
+echo ""
+echo ">> ESTADO DE WILDFLY:"
+sudo systemctl status wildfly | grep "Active:"
+echo ""
+echo ">> SERVICIOS QUE HAN FALLADO ACTUALMENTE:"
+# Este comando busca si hay servicios en estado 'failed'
+FALLIDOS=$(systemctl list-units --state=failed --no-legend)
+
+if [ -z "$FALLIDOS" ]; then
+    echo "¡Todo bien! No hay servicios fallidos."
+else
+    echo "$FALLIDOS"
+fi
+echo ""
+echo "-----------------------------------------"
+ps auxwww |grep java------------servicios 
+
+---------------------------------------------
+Bajr todos
+
+-------------------------------------------
+N8n
+weblogic 12
+------------------------------------------------------------------------------BASE---DE---DATOS-----------------------------------------
+BASE:FEMSADEV
+USUARIO:PFCADMIN
+CLAVE:y8N5tkatehQ
+
+spring.datasource.ge.username=GESTION_OBI
+spring.datasource.ge.password=GST#0932#OBI
+----------------------------------------------------------------------------------------ENLAZAR DATOS DESDE POSTMAN------------------------------------------------
+---------------------------TABLA---------SERVIDORES_APLICACION--------
+http://localhost:8080/api/servidores-aplicacion/listar
+
+JSONB
+
+{
+    "ip": "10.100.15.10",
+    "usuario": "adminapp",
+    "password": "temporal",
+    "rutaShell": "/home/adminapp/status.sh",
+    "servicio":"wildfly"
+}
+
+
+
+
+----------------------TABLA---------DETALLE_SERVIDOR_APLICACIONES--------
+
+http://localhost:8080/api/detalle-servidor/buscar
+JSONB
+
+{
+    "idFc": 1
+}
+
+----------------------un solo servioc-------UNE LAS 2 TABLAS--------
+
+url-------http://localhost:8080/api/ssh/ejecutar-con-bd
+
+
+
+-----------postman
+
+url-------  http://localhost:8080/api/ssh/ejecutar-con-bd
+
+servicio
+
+{
+    "idFc": 1,
+    "servicio": "status"
+}

@@ -1,0 +1,222 @@
+{
+  "name": "proyecto control",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 20
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        -704,
+        -192
+      ],
+      "id": "f28de4e1-f6d4-4a1a-b20f-a0da76ea1dc3",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:8080/api/ssh/ejecutar-con-bd",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"idFc\": 1,\n  \"servicio\": \"status\"\n}",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true,
+              "responseFormat": "text"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -560,
+        -192
+      ],
+      "id": "5baf68d5-4bfd-4c9a-9e2a-e7b6fa66efb7",
+      "name": "HTTP Request",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "137253b0-e906-4437-9883-c6bb7476485b",
+              "leftValue": "={{ !!$json.error }}",
+              "rightValue": "caido",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -512,
+        32
+      ],
+      "id": "f521e351-5a4c-4144-89f3-27f94ad4e00f",
+      "name": "If",
+      "alwaysOutputData": false,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:8080/api/ssh/ejecutar-con-bd",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n    \"idFc\": 1,\n    \"servicio\": \"restart\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -240,
+        -208
+      ],
+      "id": "d07fc34c-2f46-4530-be8b-7d64f4cd4f44",
+      "name": "Reinicio-Servidor",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "fromEmail": "gabybohorquezq@gmail.com",
+        "toEmail": "gabybohorquezq@gmail.com",
+        "subject": "🚨 El servidor estaba caído. Se envió orden de reinicio. Por favor, verifica en 1 minuto\".",
+        "text": "=⚠️ ALERTA: El servidor no respondió (ECONNREFUSED). Se ha enviado automáticamente una orden de reinicio mediante POST.\"",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.mailjet",
+      "typeVersion": 1,
+      "position": [
+        -32,
+        -208
+      ],
+      "id": "4eb6a70a-ec43-44e5-83f5-f025c27467e6",
+      "name": "Send mail reinicio",
+      "credentials": {
+        "mailjetEmailApi": {
+          "id": "llTUV2w40S1mw8yp",
+          "name": "Mailjet Email account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "fromEmail": "gabybohorquezq@gmail.com",
+        "toEmail": "gabybohorquezq@gmail.com",
+        "subject": "🚀 Reporte de Servidores - Automatización Exitosa",
+        "text": "=\"Hola, el monitoreo se ejecutó correctamente y el servidor Java/Oracle está funcionando sin problemas.\"",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.mailjet",
+      "typeVersion": 1,
+      "position": [
+        -240,
+        32
+      ],
+      "id": "6d1870e9-d239-4606-b73d-5c50935df049",
+      "name": "Send email status",
+      "credentials": {
+        "mailjetEmailApi": {
+          "id": "llTUV2w40S1mw8yp",
+          "name": "Mailjet Email account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Reinicio-Servidor",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send email status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Reinicio-Servidor": {
+      "main": [
+        [
+          {
+            "node": "Send mail reinicio",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false,
+    "timeSavedMode": "fixed",
+    "timezone": "America/Guayaquil",
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "versionId": "76c2e304-db0d-4ec2-a181-8285ac2ff180",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "d2e87fb6706683507a7e7896fd7d9f6146be0aff0ccc64c3cdce67df3a7085ca"
+  },
+  "id": "fZixxsid0BiUvYg4",
+  "tags": []
+}

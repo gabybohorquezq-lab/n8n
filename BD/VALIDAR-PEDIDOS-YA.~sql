@@ -1,0 +1,608 @@
+SELECT distinct ip.ITEM AS "SKU",
+                NVL((CASE
+                      WHEN (SELECT (IA.PVP_CON_IVA * ITS.UNIDAD)
+                              FROM PR_ITEMS_AUTORIZADOS IA
+                             INNER JOIN PR_RELACION_DIGITAL RD
+                                ON IA.ITEM = RD.ITEM
+                             INNER JOIN FA_INT_ITEM_SUELTAS ITS
+                                ON ITS.ITEM_SUELTA = IA.ITEM
+                             INNER JOIN PR_ITEMS ITE
+                                ON ITE.CODIGO = IA.ITEM
+                             INNER JOIN PR_ITEMS_PARAMETROS ITP
+                                ON ITP.ITEM = ITE.CODIGO
+                             WHERE FARMACIA = 1
+                               AND ITP.DISCONTINUADO = 'A'
+                               AND IA.ACTIVO = 'S'
+                               AND IA.ITEM = ip.ITEM) > 0 THEN
+                       (SELECT TO_CHAR(IA.PVP_CON_IVA * ITS.UNIDAD,
+                                       'FM99999999999999990D00',
+                                       'NLS_NUMERIC_CHARACTERS=''.,''')
+                          FROM PR_ITEMS_AUTORIZADOS IA
+                         INNER JOIN FA_INT_ITEM_SUELTAS ITS
+                            ON ITS.ITEM_SUELTA = IA.ITEM
+                         WHERE FARMACIA = 1
+                           AND IA.ITEM = ip.ITEM)
+                    
+                      WHEN (SELECT IA.PVP_CON_IVA
+                              FROM PR_ITEMS_AUTORIZADOS IA
+                             WHERE IA.FARMACIA = 1
+                               AND IA.ITEM =
+                                   (SELECT fiis.ITEM_SUELTA
+                                      FROM FARMACIAS.FA_INT_ITEM_SUELTAS fiis
+                                     WHERE fiis.ITEM_CAJA = ip.ITEM)) > 0 THEN
+                       (SELECT TO_CHAR(IA.PVP_CON_IVA,
+                                       'FM99999999999999990D00',
+                                       'NLS_NUMERIC_CHARACTERS = ''.,''')
+                          FROM PR_ITEMS_AUTORIZADOS IA
+                         WHERE IA.FARMACIA = 1
+                           AND IA.ITEM =
+                               (SELECT ITEM_CAJA
+                                  FROM FARMACIAS.FA_INT_ITEM_SUELTAS fiis
+                                 WHERE fiis.ITEM_CAJA = ip.ITEM))
+                    
+                      ELSE
+                       (SELECT TO_CHAR(IA.PVP_CON_IVA,
+                                       'FM99999999999999990D00',
+                                       'NLS_NUMERIC_CHARACTERS = ''.,''')
+                          FROM PR_ITEMS_AUTORIZADOS IA
+                         WHERE IA.FARMACIA = 1
+                           AND IA.ITEM = ip.ITEM)
+                    END),
+                    0) AS "PRICE",
+                (CASE
+                  WHEN MAX(NVL(pr.UNIDADES, 0)) >
+                       (select to_number(det.valor_parametro)
+                          from INTEGRACIONES.INT_PARAMETROS_POS     cab,
+                               integraciones.int_parametros_detalle det
+                         where cab.nombre_proceso = 'PEDIDOSYA'
+                           and cab.codigo = det.codigo_parametro) THEN
+                   1
+                  ELSE
+                   0
+                END) AS "ACTIVE"
+  FROM INTEGRACIONES.INT_PEDIDOSYA ip
+  LEFT JOIN (SELECT NVL(tb.PACK_NO, ss.PRO_CODIGO_INTERNO) AS PRO_CODIGO_INTERNO,
+                    CASE
+                      WHEN tb.PACK_NO IS NOT NULL THEN
+                       TRUNC(ss.UNIDADES / tb.PACK_QTY)
+                      ELSE
+                       ss.UNIDADES
+                    END AS STOCK,
+                    NVL(tb.PACK_QTY, 1) AS UNIDAD,
+                    ss.UNIDADES,
+                    ss.LOC_LOCAL
+               FROM trx3.scfr_stock_en_linea@to_appdfm.uio ss
+               LEFT JOIN (SELECT PACK_NO, ITEM, PACK_QTY
+                           FROM rms.packitem@prod_to_momprd.uio) tb
+                 ON ss.PRO_CODIGO_INTERNO = tb.ITEM
+              WHERE ss.LOC_LOCAL = 1) pr
+    ON pr.PRO_CODIGO_INTERNO = ip.ITEM
+ group by ip.ITEM;
+
+
+
+----------------------------------------------op2----pp---------------------------------------------------
+SELECT distinct ip.ITEM AS "SKU", --Obtiene el código único del producto elimina repetidos y lo pone en SKU
+                NVL(( -- Si el CASE no encuentra precio, NVL pone un 0 al final "ACTIVE" para campos vacíos.
+                    CASE --PRICE / PRECIO
+                      WHEN (SELECT (IA.PVP_CON_IVA * ITS.UNIDAD)
+                              FROM PR_ITEMS_AUTORIZADOS IA
+                              JOIN PR_RELACION_DIGITAL RD
+                                ON IA.ITEM = RD.ITEM
+                             JOIN FA_INT_ITEM_SUELTAS ITS
+                                ON ITS.ITEM_SUELTA = IA.ITEM
+                              JOIN PR_ITEMS ITE
+                                ON ITE.CODIGO = IA.ITEM
+                             JOIN PR_ITEMS_PARAMETROS ITP
+                                ON ITP.ITEM = ITE.CODIGO
+                             WHERE FARMACIA = 1                  --# FARMACIA
+                               AND ITP.DISCONTINUADO = 'A'      --DISCONTINUADO 
+                               AND IA.ACTIVO = 'S'              --
+                               AND IA.ITEM = ip.ITEM) > 0 THEN  --desde 1 
+                      
+                        (SELECT TO_CHAR(IA.PVP_CON_IVA * ITS.UNIDAD,
+                                        'FM99999999999999990D00',
+                                        'NLS_NUMERIC_CHARACTERS=''.,''')
+                           FROM PR_ITEMS_AUTORIZADOS IA
+                          INNER JOIN FA_INT_ITEM_SUELTAS ITS
+                             ON ITS.ITEM_SUELTA = IA.ITEM
+                          WHERE FARMACIA = 1
+                            AND IA.ITEM = ip.ITEM)
+                    
+                      WHEN (SELECT IA.PVP_CON_IVA
+                              FROM PR_ITEMS_AUTORIZADOS IA
+                             WHERE IA.FARMACIA = 1
+                               AND IA.ITEM =
+                                   (SELECT fiis.ITEM_SUELTA
+                                      FROM FARMACIAS.FA_INT_ITEM_SUELTAS fiis
+                                     WHERE fiis.ITEM_CAJA = ip.ITEM)) > 0 THEN
+                        (SELECT TO_CHAR(IA.PVP_CON_IVA,
+                                        'FM99999999999999990D00',
+                                        'NLS_NUMERIC_CHARACTERS = ''.,''')
+                           FROM PR_ITEMS_AUTORIZADOS IA
+                          WHERE IA.FARMACIA = 1
+                            AND IA.ITEM =
+                                (SELECT ITEM_CAJA
+                                   FROM FARMACIAS.FA_INT_ITEM_SUELTAS fiis
+                                  WHERE fiis.ITEM_CAJA = ip.ITEM))
+                    
+                      ELSE
+                        (SELECT TO_CHAR(IA.PVP_CON_IVA,
+                                        'FM99999999999999990D00',
+                                        'NLS_NUMERIC_CHARACTERS = ''.,''')
+                           FROM PR_ITEMS_AUTORIZADOS IA
+                          WHERE IA.FARMACIA = 1
+                            AND IA.ITEM = ip.ITEM)
+                    END),
+                    0) AS "PRICE",
+                
+    -- CAMBIO AQUÍ: ACTIVE ahora toma directamente el valor de stock calculado
+    NVL(pr.stock, 0) AS "ACTIVE",
+
+    pr.stock,
+    pr.unidad,
+    pr.unidades                 
+  FROM INTEGRACIONES.INT_PEDIDOSYA ip
+  LEFT JOIN (SELECT NVL(tb.PACK_NO, ss.PRO_CODIGO_INTERNO) AS PRO_CODIGO_INTERNO,
+                    CASE
+                      WHEN tb.PACK_NO IS NOT NULL THEN
+                       TRUNC(ss.UNIDADES / tb.PACK_QTY)
+                      ELSE
+                       ss.UNIDADES
+                    END AS STOCK,
+                    NVL(tb.PACK_QTY, 1) AS UNIDAD,
+                    ss.UNIDADES,
+                    ss.LOC_LOCAL
+     FROM trx3.scfr_stock_en_linea@to_appdfm.uio ss
+               LEFT JOIN (SELECT PACK_NO, ITEM, PACK_QTY
+                           FROM rms.packitem@prod_to_momprd.uio) tb
+                 ON ss.PRO_CODIGO_INTERNO = tb.ITEM
+              WHERE ss.LOC_LOCAL = 1 ) pr
+    ON pr.PRO_CODIGO_INTERNO = ip.ITEM
+ group by ip.ITEM, pr.stock, pr.unidad, pr.unidades;
+-----------------------------------------opcion3---
+SELECT 
+    ip.ITEM AS "SKU",
+    -- 1. CÁLCULO DEL PRECIO (Mantenemos tu lógica de Case)
+    NVL((
+        CASE
+            WHEN (SELECT (IA.PVP_CON_IVA * ITS.UNIDAD) FROM PR_ITEMS_AUTORIZADOS IA 
+                  INNER JOIN FA_INT_ITEM_SUELTAS ITS ON ITS.ITEM_SUELTA = IA.ITEM 
+                  WHERE IA.FARMACIA = 1 AND IA.ITEM = ip.ITEM) > 0 
+            THEN (SELECT TO_CHAR(IA.PVP_CON_IVA * ITS.UNIDAD, 'FM999990D00', 'NLS_NUMERIC_CHARACTERS=''.,''') 
+                  FROM PR_ITEMS_AUTORIZADOS IA INNER JOIN FA_INT_ITEM_SUELTAS ITS ON ITS.ITEM_SUELTA = IA.ITEM 
+                  WHERE IA.FARMACIA = 1 AND IA.ITEM = ip.ITEM)
+            ELSE (SELECT TO_CHAR(IA.PVP_CON_IVA, 'FM999990D00', 'NLS_NUMERIC_CHARACTERS=''.,''') 
+                  FROM PR_ITEMS_AUTORIZADOS IA WHERE IA.FARMACIA = 1 AND IA.ITEM = ip.ITEM)
+        END
+    ), 0) AS "PRICE",
+
+    -- 2. ESTADO ACTIVO (Basado en el parámetro de la empresa)
+    (CASE
+        WHEN MAX(NVL(pr.STOCK, 0)) > (SELECT TO_NUMBER(det.valor_parametro) 
+                                      FROM INTEGRACIONES.INT_PARAMETROS_POS cab, integraciones.int_parametros_detalle det 
+                                      WHERE cab.nombre_proceso='PEDIDOSYA' AND cab.codigo=det.codigo_parametro) 
+        THEN 1 ELSE 0 
+    END) AS "ACTIVE",
+
+    -- 3. STOCK REAL (Calculado desde el servidor de inventario)
+    MAX(NVL(pr.STOCK, 0)) AS "STOCK_REAL"
+
+FROM INTEGRACIONES.INT_PEDIDOSYA ip
+-- Unión con el servidor de Stock en Línea (Nodo de inventario)
+LEFT JOIN (
+    SELECT
+        NVL(tb.PACK_NO, ss.PRO_CODIGO_INTERNO) AS PRO_CODIGO_INTERNO,
+        CASE
+            WHEN tb.PACK_NO IS NOT NULL THEN TRUNC(ss.UNIDADES / tb.PACK_QTY)
+            ELSE ss.UNIDADES
+        END AS STOCK
+    FROM trx3.scfr_stock_en_linea@to_appdfm.uio ss
+    LEFT JOIN (
+        SELECT PACK_NO, ITEM, PACK_QTY FROM rms.packitem@prod_to_momprd.uio
+    ) tb ON ss.PRO_CODIGO_INTERNO = tb.ITEM
+    WHERE ss.LOC_LOCAL = 1
+) pr ON pr.PRO_CODIGO_INTERNO = ip.ITEM
+GROUP BY ip.ITEM;
+-------------------------------------------------------------------------------ORIGINAL-------------------------------------------------
+SELECT 
+    distinct ip.ITEM AS "SKU",
+    NVL((
+        CASE
+            WHEN (SELECT (IA.PVP_CON_IVA * ITS.UNIDAD)
+                  FROM PR_ITEMS_AUTORIZADOS IA
+                  INNER JOIN PR_RELACION_DIGITAL RD ON IA.ITEM = RD.ITEM
+                  INNER JOIN FA_INT_ITEM_SUELTAS ITS ON ITS.ITEM_SUELTA = IA.ITEM
+                  INNER JOIN PR_ITEMS ITE ON ITE.CODIGO = IA.ITEM
+                  INNER JOIN PR_ITEMS_PARAMETROS ITP ON ITP.ITEM = ITE.CODIGO
+                  WHERE FARMACIA = 1
+                    AND ITP.DISCONTINUADO = 'A'
+                    AND IA.ACTIVO = 'S'
+                    AND IA.ITEM = ip.ITEM) > 0 THEN
+                (SELECT TO_CHAR(IA.PVP_CON_IVA * ITS.UNIDAD, 'FM99999999999999990D00', 'NLS_NUMERIC_CHARACTERS=''.,''')
+                 FROM PR_ITEMS_AUTORIZADOS IA
+                 INNER JOIN FA_INT_ITEM_SUELTAS ITS ON ITS.ITEM_SUELTA = IA.ITEM
+                 WHERE FARMACIA = 1 AND IA.ITEM = ip.ITEM)
+ 
+            WHEN (SELECT IA.PVP_CON_IVA
+                  FROM PR_ITEMS_AUTORIZADOS IA
+                  WHERE IA.FARMACIA = 1
+                    AND IA.ITEM = (
+                        SELECT fiis.ITEM_SUELTA
+                        FROM FARMACIAS.FA_INT_ITEM_SUELTAS fiis
+                        WHERE fiis.ITEM_CAJA = ip.ITEM)) > 0 THEN
+                (SELECT TO_CHAR(IA.PVP_CON_IVA, 'FM99999999999999990D00', 'NLS_NUMERIC_CHARACTERS = ''.,''')
+                 FROM PR_ITEMS_AUTORIZADOS IA
+                 WHERE IA.FARMACIA = 1
+                   AND IA.ITEM = (
+                        SELECT ITEM_CAJA
+                        FROM FARMACIAS.FA_INT_ITEM_SUELTAS fiis
+                        WHERE fiis.ITEM_CAJA = ip.ITEM))
+ 
+            ELSE
+                (SELECT TO_CHAR(IA.PVP_CON_IVA, 'FM99999999999999990D00', 'NLS_NUMERIC_CHARACTERS = ''.,''')
+                 FROM PR_ITEMS_AUTORIZADOS IA
+                 WHERE IA.FARMACIA = 1 AND IA.ITEM = ip.ITEM)
+        END
+    ), 0) AS "PRICE",
+       (CASE
+       WHEN MAX(NVL(pr.UNIDADES,0))>  (select to_number(det.valor_parametro) from INTEGRACIONES.INT_PARAMETROS_POS cab,
+     integraciones.int_parametros_detalle det
+     where cab.nombre_proceso='PEDIDOSYA'
+     and cab.codigo=det.codigo_parametro) THEN 1
+       ELSE 0
+    END) AS "ACTIVE"
+FROM INTEGRACIONES.INT_PEDIDOSYA ip
+LEFT JOIN (
+    SELECT
+        NVL(tb.PACK_NO, ss.PRO_CODIGO_INTERNO) AS PRO_CODIGO_INTERNO,
+        CASE
+            WHEN tb.PACK_NO IS NOT NULL THEN TRUNC(ss.UNIDADES / tb.PACK_QTY)
+            ELSE ss.UNIDADES
+        END AS STOCK,
+        NVL(tb.PACK_QTY, 1) AS UNIDAD,
+        ss.UNIDADES,
+        ss.LOC_LOCAL
+    FROM trx3.scfr_stock_en_linea@to_appdfm.uio ss
+    LEFT JOIN (
+        SELECT PACK_NO, ITEM, PACK_QTY
+        FROM rms.packitem@prod_to_momprd.uio
+    ) tb ON ss.PRO_CODIGO_INTERNO = tb.ITEM
+    WHERE ss.LOC_LOCAL = 1
+) pr ON pr.PRO_CODIGO_INTERNO = ip.ITEM
+group by ip.ITEM;
+
+
+
+ 
+ 
+  
+ 
+-----------------------------------------------------------STOCK CAJAS -------tabla--trx3.scfr_stock_en_linea@to_appdfm.uio
+(SELECT NVL(tb.PACK_NO, ss.PRO_CODIGO_INTERNO) AS PRO_CODIGO_INTERNO,
+                    CASE
+                      WHEN tb.PACK_NO IS NOT NULL THEN
+                       TRUNC(ss.UNIDADES / tb.PACK_QTY)
+                      ELSE
+                       ss.UNIDADES
+                    END AS STOCK,
+                    NVL(tb.PACK_QTY, 1) AS UNIDAD,
+                    ss.UNIDADES,
+                    ss.LOC_LOCAL
+     FROM trx3.scfr_stock_en_linea@to_appdfm.uio ss
+               LEFT JOIN (SELECT PACK_NO, ITEM, PACK_QTY
+                           FROM rms.packitem@prod_to_momprd.uio) tb
+                 ON ss.PRO_CODIGO_INTERNO = tb.ITEM
+              WHERE ss.LOC_LOCAL = 72221  and PRO_CODIGO_INTERNO = 148764)
+------------------------              ----------------------------------------------------- velidar 
+              
+              SELECT ss.PRO_CODIGO_INTERNO as COD_BODEGA,
+       tb.PACK_NO as COD_CAJA,
+       ss.UNIDADES as SALDO_UNIDADES,
+       nvl(tb.PACK_QTY, 1) as FACTOR_CAJA,
+       TRUNC(ss.UNIDADES / nvl(tb.PACK_QTY, 1)) as CAJAS_RESULTANTES
+FROM trx3.scfr_stock_en_linea@to_appdfm.uio ss
+LEFT JOIN (SELECT PACK_NO, ITEM, PACK_QTY 
+             FROM rms.packitem@prod_to_momprd.uio) tb 
+  ON ss.PRO_CODIGO_INTERNO = tb.ITEM
+WHERE ss.LOC_LOCAL = 58
+  AND (ss.PRO_CODIGO_INTERNO = '100146038' OR tb.PACK_NO = '100146038');
+              
+             
+ where ip.item in  (299782)    
+ Select * FROM trx3.scfr_stock_en_linea@to_appdfm.uio where PRO_CODIGO_INTERNO in (100113228) AND LOC_LOCAL =71879
+ 
+ 100113227 EL PORTAL 71879
+ 90110 VILLA CLUB 1538 
+100146038 LOS CEIBOS   58
+100113227 EL PORTAL  71879
+148764 CUMBAYA  72221
+
+ 
+ 
+ 
+
+-----------------------------------------------------------------------enlaza SKU-STOCK-------SELECT distinct ip.ITEM AS "SKU"
+ SELECT 
+    distinct ip.ITEM AS "SKU",              
+ NVL(( -- Si el CASE no encuentra precio, NVL pone un 0 al final "ACTIVE" para campos vacíos.
+                    CASE --PRICE / PRECIO
+                      WHEN (SELECT (IA.PVP_CON_IVA * ITS.UNIDAD)
+                              FROM PR_ITEMS_AUTORIZADOS IA
+                              JOIN PR_RELACION_DIGITAL RD
+                                ON IA.ITEM = RD.ITEM
+                             JOIN FA_INT_ITEM_SUELTAS ITS
+                                ON ITS.ITEM_SUELTA = IA.ITEM
+                              JOIN PR_ITEMS ITE
+                                ON ITE.CODIGO = IA.ITEM
+                             JOIN PR_ITEMS_PARAMETROS ITP
+                                ON ITP.ITEM = ITE.CODIGO
+                             WHERE FARMACIA = 1                  --# FARMACIA
+                               AND ITP.DISCONTINUADO = 'A'      --DISCONTINUADO 
+                               AND IA.ACTIVO = 'S'              --
+                               AND IA.ITEM = ip.ITEM) > 0 THEN  --desde 1 
+                      
+                        (SELECT TO_CHAR(IA.PVP_CON_IVA * ITS.UNIDAD,
+                                        'FM99999999999999990D00',
+                                        'NLS_NUMERIC_CHARACTERS=''.,''')
+                           FROM PR_ITEMS_AUTORIZADOS IA
+                          INNER JOIN FA_INT_ITEM_SUELTAS ITS
+                             ON ITS.ITEM_SUELTA = IA.ITEM
+                          WHERE FARMACIA = 1
+                            AND IA.ITEM = ip.ITEM)
+                    
+                      WHEN (SELECT IA.PVP_CON_IVA
+                              FROM PR_ITEMS_AUTORIZADOS IA
+                             WHERE IA.FARMACIA = 1
+                               AND IA.ITEM =
+                                   (SELECT fiis.ITEM_SUELTA
+                                      FROM FARMACIAS.FA_INT_ITEM_SUELTAS fiis
+                                     WHERE fiis.ITEM_CAJA = ip.ITEM)) > 0 THEN
+                        (SELECT TO_CHAR(IA.PVP_CON_IVA,
+                                        'FM99999999999999990D00',
+                                        'NLS_NUMERIC_CHARACTERS = ''.,''')
+                           FROM PR_ITEMS_AUTORIZADOS IA
+                          WHERE IA.FARMACIA = 1
+                            AND IA.ITEM =
+                                (SELECT ITEM_CAJA
+                                   FROM FARMACIAS.FA_INT_ITEM_SUELTAS fiis
+                                  WHERE fiis.ITEM_CAJA = ip.ITEM))
+                    
+                      ELSE
+                        (SELECT TO_CHAR(IA.PVP_CON_IVA,
+                                        'FM99999999999999990D00',
+                                        'NLS_NUMERIC_CHARACTERS = ''.,''')
+                           FROM PR_ITEMS_AUTORIZADOS IA
+                          WHERE IA.FARMACIA = 1
+                            AND IA.ITEM = ip.ITEM)
+                    END),
+                    0) AS "PRICE",
+                
+    -- CAMBIO AQUÍ: ACTIVE ahora toma directamente el valor de stock calculado
+    (CASE
+       WHEN MAX(NVL(pr.UNIDADES,0))>  (select to_number(det.valor_parametro) from INTEGRACIONES.INT_PARAMETROS_POS cab,
+     integraciones.int_parametros_detalle det
+     where cab.nombre_proceso='PEDIDOSYA'
+     and cab.codigo=det.codigo_parametro) THEN 1
+       ELSE 0
+    END) AS "ACTIVE",
+   MAX(NVL(pr.STOCK, 0)) AS "STOCK",
+    MAX(NVL(pr.UNIDAD, 1)) AS "UNIDAD",
+    MAX(NVL(pr.UNIDADES, 0)) AS "UNIDADES"
+            
+select * FROM INTEGRACIONES.INT_PEDIDOSYA ip
+  LEFT JOIN (SELECT NVL(tb.PACK_NO, ss.PRO_CODIGO_INTERNO) AS PRO_CODIGO_INTERNO,
+                    CASE
+                      WHEN tb.PACK_NO IS NOT NULL THEN
+                       TRUNC(ss.UNIDADES / tb.PACK_QTY)
+                      ELSE
+                       ss.UNIDADES
+                    END AS STOCK,
+                    NVL(tb.PACK_QTY, 1) AS UNIDAD,
+                    ss.UNIDADES,
+                    ss.LOC_LOCAL
+     FROM trx3.scfr_stock_en_linea@to_appdfm.uio ss
+               LEFT JOIN (SELECT PACK_NO, ITEM, PACK_QTY
+                           FROM rms.packitem@prod_to_momprd.uio) tb
+                 ON ss.PRO_CODIGO_INTERNO = tb.ITEM
+              WHERE ss.LOC_LOCAL = 1 
+             
+              )   pr
+     where pr. PRO_CODIGO_INTERNO  IN ( 296748 ,100161233, 100161766)
+
+    ON pr.PRO_CODIGO_INTERNO = ip.ITEM
+    
+ group by ip.ITEM
+-------------------------------------------------------------------------CONDICION----------->3= 1----------------------------------
+  (CASE
+       WHEN MAX(NVL(pr.UNIDADES,0))>  (select to_number(det.valor_parametro) from INTEGRACIONES.INT_PARAMETROS_POS cab,
+     integraciones.int_parametros_detalle det
+     where cab.nombre_proceso='PEDIDOSYA'
+     and cab.codigo=det.codigo_parametro) THEN 1
+       ELSE 0
+    END) AS "ACTIVE"
+    varios 
+    
+-------------------------------------------------------------------------cambio---para ver datos de stock de unidades------------------
+ SELECT 
+    distinct ip.ITEM AS "SKU",              
+ NVL(( -- Si el CASE no encuentra precio, NVL pone un 0 al final "ACTIVE" para campos vacíos.
+                    CASE --PRICE / PRECIO
+                      WHEN (SELECT (IA.PVP_CON_IVA * ITS.UNIDAD)
+                              FROM PR_ITEMS_AUTORIZADOS IA
+                              JOIN PR_RELACION_DIGITAL RD
+                                ON IA.ITEM = RD.ITEM
+                             JOIN FA_INT_ITEM_SUELTAS ITS
+                                ON ITS.ITEM_SUELTA = IA.ITEM
+                              JOIN PR_ITEMS ITE
+                                ON ITE.CODIGO = IA.ITEM
+                             JOIN PR_ITEMS_PARAMETROS ITP
+                                ON ITP.ITEM = ITE.CODIGO
+                             WHERE FARMACIA = 1                  --# FARMACIA
+                               AND ITP.DISCONTINUADO = 'A'      --DISCONTINUADO 
+                               AND IA.ACTIVO = 'S'              --
+                               AND IA.ITEM = ip.ITEM) > 0 THEN  --desde 1 
+                      
+                        (SELECT TO_CHAR(IA.PVP_CON_IVA * ITS.UNIDAD,
+                                        'FM99999999999999990D00',
+                                        'NLS_NUMERIC_CHARACTERS=''.,''')
+                           FROM PR_ITEMS_AUTORIZADOS IA
+                          INNER JOIN FA_INT_ITEM_SUELTAS ITS
+                             ON ITS.ITEM_SUELTA = IA.ITEM
+                          WHERE FARMACIA = 1
+                            AND IA.ITEM = ip.ITEM)
+                    
+                      WHEN (SELECT IA.PVP_CON_IVA
+                              FROM PR_ITEMS_AUTORIZADOS IA
+                             WHERE IA.FARMACIA = 1
+                               AND IA.ITEM =
+                                   (SELECT fiis.ITEM_SUELTA
+                                      FROM FARMACIAS.FA_INT_ITEM_SUELTAS fiis
+                                     WHERE fiis.ITEM_CAJA = ip.ITEM)) > 0 THEN
+                        (SELECT TO_CHAR(IA.PVP_CON_IVA,
+                                        'FM99999999999999990D00',
+                                        'NLS_NUMERIC_CHARACTERS = ''.,''')
+                           FROM PR_ITEMS_AUTORIZADOS IA
+                          WHERE IA.FARMACIA = 1
+                            AND IA.ITEM =
+                                (SELECT ITEM_CAJA
+                                   FROM FARMACIAS.FA_INT_ITEM_SUELTAS fiis
+                                  WHERE fiis.ITEM_CAJA = ip.ITEM))
+                    
+                      ELSE
+                        (SELECT TO_CHAR(IA.PVP_CON_IVA,
+                                        'FM99999999999999990D00',
+                                        'NLS_NUMERIC_CHARACTERS = ''.,''')
+                           FROM PR_ITEMS_AUTORIZADOS IA
+                          WHERE IA.FARMACIA = 1
+                            AND IA.ITEM = ip.ITEM)
+                    END),
+                    0) AS "PRICE",
+            
+   MAX(NVL(pr.UNIDADES, 0)) AS "ACTIVE", --- CAMBIO AQUÍ: ACTIVE ahora toma directamente el valor de stock calculado
+  -----------------------------------------------------------------------------  
+   MAX(NVL(pr.STOCK, 0)) AS "STOCK",
+    MAX(NVL(pr.UNIDAD, 1)) AS "UNIDAD",
+    MAX(NVL(pr.UNIDADES, 0)) AS "UNIDADES"
+            
+  FROM INTEGRACIONES.INT_PEDIDOSYA ip
+  LEFT JOIN (SELECT NVL(tb.PACK_NO, ss.PRO_CODIGO_INTERNO) AS PRO_CODIGO_INTERNO,
+                    CASE
+                      WHEN tb.PACK_NO IS NOT NULL THEN
+                       TRUNC(ss.UNIDADES / tb.PACK_QTY)
+                      ELSE
+                       ss.UNIDADES
+                    END AS STOCK,
+                    NVL(tb.PACK_QTY, 1) AS UNIDAD,
+                    ss.UNIDADES,
+                    ss.LOC_LOCAL
+     FROM trx3.scfr_stock_en_linea@to_appdfm.uio ss
+               LEFT JOIN (SELECT PACK_NO, ITEM, PACK_QTY
+                           FROM rms.packitem@prod_to_momprd.uio) tb
+                 ON ss.PRO_CODIGO_INTERNO = tb.ITEM
+              WHERE ss.LOC_LOCAL = 1 ) pr
+    ON pr.PRO_CODIGO_INTERNO = ip.ITEM
+ group by ip.ITEM
+
+
+---------------------------------------------------------------------------------------FINAL-------------------------------
+SELECT 
+    distinct ip.ITEM AS "SKU",
+    -- PRICE (Se mantiene original)
+    NVL((
+        CASE
+            WHEN (SELECT (IA.PVP_CON_IVA * ITS.UNIDAD)
+                  FROM PR_ITEMS_AUTORIZADOS IA
+                  INNER JOIN PR_RELACION_DIGITAL RD ON IA.ITEM = RD.ITEM
+                  INNER JOIN FA_INT_ITEM_SUELTAS ITS ON ITS.ITEM_SUELTA = IA.ITEM
+                  INNER JOIN PR_ITEMS ITE ON ITE.CODIGO = IA.ITEM
+                  INNER JOIN PR_ITEMS_PARAMETROS ITP ON ITP.ITEM = ITE.CODIGO
+                  WHERE FARMACIA = 1
+                    AND ITP.DISCONTINUADO = 'A'
+                    AND IA.ACTIVO = 'S'
+                    AND IA.ITEM = ip.ITEM) > 0 THEN
+                (SELECT TO_CHAR(IA.PVP_CON_IVA * ITS.UNIDAD, 'FM99999999999999990D00', 'NLS_NUMERIC_CHARACTERS=''.,''')
+                 FROM PR_ITEMS_AUTORIZADOS IA
+                 INNER JOIN FA_INT_ITEM_SUELTAS ITS ON ITS.ITEM_SUELTA = IA.ITEM
+                 WHERE FARMACIA = 1 AND IA.ITEM = ip.ITEM)
+            WHEN (SELECT IA.PVP_CON_IVA
+                  FROM PR_ITEMS_AUTORIZADOS IA
+                  WHERE IA.FARMACIA = 1
+                    AND IA.ITEM = (SELECT fiis.ITEM_SUELTA FROM FARMACIAS.FA_INT_ITEM_SUELTAS fiis WHERE fiis.ITEM_CAJA = ip.ITEM)) > 0 THEN
+                (SELECT TO_CHAR(IA.PVP_CON_IVA, 'FM99999999999999990D00', 'NLS_NUMERIC_CHARACTERS = ''.,''')
+                 FROM PR_ITEMS_AUTORIZADOS IA
+                 WHERE IA.FARMACIA = 1
+                   AND IA.ITEM = (SELECT ITEM_CAJA FROM FARMACIAS.FA_INT_ITEM_SUELTAS fiis WHERE fiis.ITEM_CAJA = ip.ITEM))
+            ELSE
+                (SELECT TO_CHAR(IA.PVP_CON_IVA, 'FM99999999999999990D00', 'NLS_NUMERIC_CHARACTERS = ''.,''')
+                 FROM PR_ITEMS_AUTORIZADOS IA
+                 WHERE IA.FARMACIA = 1 AND IA.ITEM = ip.ITEM)
+        END
+    ), 0) AS "PRICE",
+
+    -- NUEVO ACTIVE: AHORA ES IGUAL AL STOCK ya No más 1 o 0)
+    MAX(NVL(pr.STOCK, 0)) AS "ACTIVE",
+    
+     -- COLUMNAS DE APOYO
+    MAX(NVL(pr.STOCK, 0)) AS "STOCK",
+    MAX(NVL(pr.UNIDAD, 1)) AS "UNIDAD",
+    MAX(NVL(pr.UNIDADES, 0)) AS "UNIDADES"
+
+FROM INTEGRACIONES.INT_PEDIDOSYA ip
+LEFT JOIN (
+    SELECT
+        NVL(tb.PACK_NO, ss.PRO_CODIGO_INTERNO) AS PRO_CODIGO_INTERNO,
+        CASE
+            WHEN tb.PACK_NO IS NOT NULL THEN TRUNC(ss.UNIDADES / tb.PACK_QTY)
+            ELSE ss.UNIDADES
+        END AS STOCK,
+        NVL(tb.PACK_QTY, 1) AS UNIDAD,
+        ss.UNIDADES,
+        ss.LOC_LOCAL
+    FROM trx3.scfr_stock_en_linea@to_appdfm.uio ss
+    LEFT JOIN (
+        SELECT PACK_NO, ITEM, PACK_QTY
+        FROM rms.packitem@prod_to_momprd.uio
+    ) tb ON ss.PRO_CODIGO_INTERNO = tb.ITEM
+    WHERE ss.LOC_LOCAL = 1
+) pr ON pr.PRO_CODIGO_INTERNO = ip.ITEM
+
+--where ip.item in  (299782)
+GROUP BY ip.ITEM;
+
+-------------------------------------------TABLAS -----------------
+SELECT * FROM PR_RELACION_DIGITAL WHERE ITEM in  ( 249500 )  
+
+SELECT * FROM PR_ITEMS_AUTORIZADOS WHERE ITEM= 249500
+                 SELECT * FROM PR_RELACION_DIGITAL RD ON IA.ITEM = RD.ITEM
+                 SELECT * FROM PR_RELACION_DIGITAL WHERE ITEM=  279880         --ITEM Y CODIGO 
+                 SELECT * FROM FA_INT_ITEM_SUELTAS ITS ON ITS.ITEM_SUELTA = IA.ITEM  -- coversion de CAJA A SUELTAS 
+                 SELECT * FROM PR_ITEMS ITE ON ITE.CODIGO = IA.ITEM --CODIGO DEL ITEM QUE ESTA EN ITEMS_AUTORIZADOS 
+                 SELECT * FROM PR_ITEMS ITE WHERE CODIGO=  279880
+                 SELECT * FROM PR_ITEMS_PARAMETROS ITP ON ITP.ITEM = ITE.CODIGO
+                 SELECT * FROM PR_ITEMS_PARAMETROS ITP where discontinuado ='A' ---A DISCONTINUADO -- S PROCDUCTOS ACTIVOS 
+                 SELECT * FROM INTEGRACIONES.INT_PARAMETROS_POS --PROCESOS ?
+                 SELECT * FROM   integraciones.int_parametros_detalle--?
+                 SELECT * FROM  INTEGRACIONES.INT_PEDIDOSYA  for update where item in (299782)--TODOS LOS PRODUCTOS pedidos ya
+                 
+SELECT ITEM, COUNT(*) 
+FROM INTEGRACIONES.INT_PEDIDOSYA 
+GROUP BY ITEM 
+HAVING COUNT(*) > 1;
+                 
+                 
+                  SELECT * FROM trx3.scfr_stock_en_linea@to_appdfm.uio --?
+                SELECT * FROM   rms.packitem@prod_to_momprd.uio---?
+                 SELECT *    FROM rms.packitem@prod_to_momprd.uio  where item = 300201 ----cajas
+                
+                 SELECT * FROM trx3.scfr_stock_en_linea@to_appdfm.uio ss where PRO_CODIGO_INTERNO IN ( 206224)
+                 and LOC_LOCAL = 1 --stock real---VALIDAR 
+ where ip.item in  (299782) 
+ 
+ 
+ prompt Importing table INTEGRACIONES.INT_PEDIDOSYA...
+set feedback off
+set define off
+insert into INTEGRACIONES.INT_PEDIDOSYA (ID, ITEM, ITEM_DESC, FECHA) values (28543, 100276736, 'Ludium 20 Mg Comprimidos X 1 Saval Comprimidos 1 MG', to_date('22-10-2025', 'dd-mm-yyyy'));
+
+prompt Done.
